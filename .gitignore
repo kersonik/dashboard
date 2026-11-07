@@ -1,0 +1,17 @@
+# Private configuration files containing real IPs & device details
+config.php
+config.js
+
+# Environment & secrets
+.env
+.env.*
+
+# Logs & temporary files
+*.log
+*.tmp
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

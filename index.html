@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <style>
+        :root {
+            --bg: #090d13;
+            --panel: #111622;
+            --border: #232c3d;
+            --border-hover: #3b82f6;
+            --accent: #60a5fa;
+            --text: #c9d1d9;
+            --text-bright: #ffffff;
+            --text-dim: #768390;
+            --accent-cyan: #22d3ee;
+            --accent-purple: #a78bfa;
+            --accent-amber: #f59e0b;
+            --syncthing-color: var(--accent-cyan);
+            --vault-color: var(--accent-purple);
+            --sunshine-color: var(--accent-amber);
+            --status-green: #3fb950;
+            --status-yellow: #d29922;
+            --status-red: #f85149;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 2rem 1rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        header h1 { font-size: 1.25rem; letter-spacing: 1.5px; color: var(--text-bright); }
+        #clock { color: var(--accent); font-size: 0.95rem; font-weight: 600; }
+
+        .sys-bar {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.8rem 1.2rem;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+            font-size: 0.85rem;
+        }
+
+        .section-header {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-dim);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .section-header::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1rem;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.2rem;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 0.75rem;
+            transition: all 0.15s ease-in-out;
+            cursor: pointer;
+        }
+
+        .card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+
+        .card-top { display: flex; justify-content: space-between; align-items: center; }
+        .card-title { color: var(--text-bright); font-size: 1.05rem; font-weight: bold; }
+
+        .badge {
+            font-size: 0.7rem;
+            padding: 2px 7px;
+            border-radius: 4px;
+            background: var(--badge-bg);
+            border: 1px solid var(--border);
+            font-weight: 600;
+        }
+        .badge.vault { color: var(--vault-color); border-color: rgba(167, 139, 250, 0.3); }
+        .badge.tailscale { color: var(--accent); border-color: rgba(96, 165, 250, 0.3); }
+        .badge.action { color: var(--sunshine-color); border-color: rgba(245, 158, 11, 0.3); }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--status-yellow);
+        }
+        .dot.green { background-color: var(--status-green); box-shadow: 0 0 6px var(--status-green); }
+        .dot.yellow { background-color: var(--status-yellow); }
+        .dot.red { background-color: var(--status-red); box-shadow: 0 0 6px var(--status-red); }
+
+        .card-meta {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .card-meta code {
+            color: var(--text);
+            background: var(--badge-bg);
+            padding: 2px 4px;
+            border-radius: 3px;
+            width: fit-content;
+        }
+
+        /* MODAL WINDOW */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .modal {
+            background: var(--panel);
+            border: 1px solid var(--border-hover);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 440px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .modal-title { font-size: 1.1rem; color: var(--text-bright); font-weight: bold; }
+        .modal-buttons { display: flex; flex-direction: column; gap: 0.75rem; }
+        .btn-modal {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.9rem 1rem;
+            background: #182030;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-bright);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-family: inherit;
+        }
+        .btn-modal:hover { border-color: var(--accent); background: #1f2b42; }
+        .btn-close {
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            text-align: center;
+            font-family: inherit;
+            margin-top: 0.5rem;
+        }
+        .btn-close:hover { color: var(--text-bright); }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--status-green);
+            color: #000;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            display: none;
+            z-index: 200;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>DASHBOARD</h1>
+        <span id="clock">00:00:00</span>
+    </header>
+
+    <!-- VPS MINI MONITOR -->
+    <div class="sys-bar" id="vps-bar">
+        <span>VPS RAM: <strong id="vps-ram">--%</strong></span>
+        <span>CPU: <strong id="vps-cpu">--%</strong></span>
+        <span>Disk: <strong id="vps-disk">--%</strong></span>
+        <span>Uptime: <strong id="vps-uptime">načítám...</strong></span>
+    </div>
+
+    <!-- CORE APPS -->
+    <section>
+        <div class="section-header">Webové aplikace / Služby</div>
+        <div class="grid" id="grid-apps"></div>
+    </section>
+
+    <!-- MONITORED NODES -->
+    <section>
+        <div class="section-header">Monitorované nody / Instance</div>
+        <div class="grid" id="grid-syncthing"></div>
+    </section>
+
+    <!-- MACHINES & INTERACTIVE CARDS -->
+    <section>
+        <div class="section-header">Infrastruktura & Zařízení</div>
+        <div class="grid" id="grid-devices"></div>
+    </section>
+</div>
+
+<!-- DYNAMIC DEVICE MODAL -->
+<div class="modal-overlay" id="devModal" onclick="closeModalOnBackdrop(event)">
+    <div class="modal">
+        <div class="modal-title" id="mTitle">Zařízení</div>
+        <div class="modal-buttons" id="mButtons"></div>
+        <button class="btn-close" onclick="closeModal()">Zavřít</button>
+    </div>
+</div>
+
+<div class="toast" id="toast">Zkopírováno do schránky!</div>
+
+<!-- Load Config: local config.js if present, otherwise fallback to config.example.js -->
+<script src="config.js" onerror="this.onerror=null;const s=document.createElement('script');s.src='config.example.js';document.body.appendChild(s);s.onload=()=>initDashboard();"></script>
+
+<script>
+    function updateClock() {
+        document.getElementById('clock').innerText = new Date().toLocaleTimeString('cs-CZ');
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            const toast = document.getElementById('toast');
+            toast.innerText = 'Zkopírováno: ' + text;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 2200);
+        });
+    }
+
+    function initDashboard() {
+        const conf = window.CONFIG || {};
+
+        // Render Apps
+        const appsContainer = document.getElementById('grid-apps');
+        appsContainer.innerHTML = '';
+        (conf.webApps || []).forEach(app => {
+            const a = document.createElement('a');
+            a.className = 'card';
+            a.href = app.href || '#';
+            if (app.target) a.target = app.target;
+            a.innerHTML = `
+                <div class="card-top">
+                    <span class="card-title">${app.title}</span>
+                    <span class="badge ${app.badgeClass || ''}" ${app.badgeStyle ? `style="${app.badgeStyle}"` : ''}>${app.badge || ''}</span>
+                </div>
+                <div class="card-meta">
+                    <span>${app.desc || ''}</span>
+                    <code>${app.urlCode || ''}</code>
+                </div>
+            `;
+            appsContainer.appendChild(a);
+        });
+
+        // Render Nodes / Instances
+        const nodesContainer = document.getElementById('grid-syncthing');
+        nodesContainer.innerHTML = '';
+        const nodeList = conf.nodes || conf.syncthingNodes || [];
+        nodeList.forEach(node => {
+            const a = document.createElement('a');
+            a.className = 'card';
+            a.href = node.url || '#';
+            a.target = '_blank';
+            a.innerHTML = `
+                <div class="card-top">
+                    <span class="card-title">${node.title}</span>
+                    <span class="status-pill" id="status-${node.id}"><span class="dot yellow"></span> načítám</span>
+                </div>
+                <div class="card-meta">
+                    <span>${node.desc || ''}</span>
+                    <code>${node.urlCode || ''}</code>
+                </div>
+            `;
+            nodesContainer.appendChild(a);
+        });
+
+        // Render Devices
+        const devContainer = document.getElementById('grid-devices');
+        devContainer.innerHTML = '';
+        Object.entries(conf.devices || {}).forEach(([key, dev]) => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.onclick = () => openModal(key);
+            div.innerHTML = `
+                <div class="card-top">
+                    <span class="card-title">${dev.name || key}</span>
+                    <span class="badge action">MENU</span>
+                </div>
+                <div class="card-meta">
+                    <span>${dev.desc || ''}</span>
+                    <code>${dev.ip || ''}</code>
+                </div>
+            `;
+            devContainer.appendChild(div);
+        });
+
+        fetchStatus();
+    }
+
+    // Run once config.js is loaded
+    if (window.CONFIG) {
+        initDashboard();
+    } else {
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.CONFIG) initDashboard();
+        });
+    }
+
+    function openModal(devKey) {
+        const conf = (window.CONFIG && window.CONFIG.devices) ? window.CONFIG.devices[devKey] : null;
+        if (!conf) return;
+
+        document.getElementById('mTitle').innerText = conf.title || conf.name;
+        const container = document.getElementById('mButtons');
+        container.innerHTML = '';
+
+        (conf.buttons || []).forEach(btn => {
+            const el = document.createElement('div');
+            el.className = 'btn-modal';
+            el.innerHTML = `<span>${btn.text}</span><span style="color: ${btn.color};">${btn.sub}</span>`;
+            
+            if (btn.url) {
+                el.onclick = () => window.open(btn.url, '_blank');
+            } else if (btn.actionText) {
+                el.onclick = () => copyToClipboard(btn.actionText);
+            }
+            container.appendChild(el);
+        });
+
+        document.getElementById('devModal').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('devModal').style.display = 'none';
+    }
+
+    function closeModalOnBackdrop(e) {
+        if (e.target.id === 'devModal') closeModal();
+    }
+
+    // Monitoring API
+    async function fetchStatus() {
+        try {
+            const res = await fetch('api.php');
+            const data = await res.json();
+
+            // VPS Info
+            if (data.vps) {
+                document.getElementById('vps-ram').innerText = (data.vps.ram_percent ?? '--') + '%';
+                document.getElementById('vps-cpu').innerText = (data.vps.cpu_percent ?? '--') + '%';
+                document.getElementById('vps-disk').innerText = (data.vps.disk_percent ?? '--') + '%';
+                document.getElementById('vps-uptime').innerText = data.vps.uptime ?? 'N/A';
+            }
+
+            // Service nodes status
+            const nodesStatus = data.nodes || data.syncthing;
+            if (nodesStatus) {
+                Object.entries(nodesStatus).forEach(([nodeId, status]) => {
+                    updateNodePill('status-' + nodeId, status);
+                });
+            }
+        } catch (e) {
+            console.error('Chyba načítání stavu:', e);
+        }
+    }
+
+    function updateNodePill(elementId, status) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+
+        if (status === 'online') {
+            el.innerHTML = '<span class="dot green"></span> běží';
+        } else if (status === 'waiting') {
+            el.innerHTML = '<span class="dot yellow"></span> čeká';
+        } else {
+            el.innerHTML = '<span class="dot red"></span> offline';
+        }
+    }
+
+    setInterval(fetchStatus, 5000);
+</script>
+
+</body>
+</html>
